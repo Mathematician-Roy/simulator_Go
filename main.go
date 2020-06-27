@@ -3,12 +3,11 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"time"
 )
 
 
 func main() {
-	//rand.Seed(time.Now().UnixNano())
+	// rand.Seed(time.Now().UnixNano())
 	//fmt.Println("Hello World", "OPOPO")
 	//fmt.Println(rand.Intn(100))
 
@@ -22,6 +21,8 @@ func main() {
 	instanceReel := new(Reel)
 	instanceReel.Init(reel1, reel2, reel3, reel4, reel5)
 	// fmt.Println(instanceReel.reelLength)
+
+	// fmt.Println("Here", index(instanceReel))
 
 	result := spin(instanceReel)
 	fmt.Println(result, result[0][1])
@@ -71,6 +72,7 @@ func main() {
 			{1, 0, 0, 1, 2},
 			{1, 2, 2, 1, 0}}
 
+	// fmt.Println(payTable[0], payLine[0])
 	// fmt.Println(payLine[0])
 	// fmt.Println(getSymbol(result, payLine, 2))
 	// fmt.Println(findKeyConnection(result, payLine, 0, 3))
@@ -78,7 +80,7 @@ func main() {
 	// fmt.Println(test)
 	// fmt.Println(prizeMapping_single(test[0], test[1], payTable))
 	// fmt.Println(prizeMapping(result, 25, payLine, payTable))
-	RTP := simulator_mainGame(instanceReel, 25, payLine, payTable, 1000000)
+	RTP := simulator_mainGame(instanceReel, 25, payLine, payTable, 10000000)
 	fmt.Println(RTP)
 }
 
@@ -110,20 +112,22 @@ func generateRandomNumber(reelLength []int) []int {
 		//存放結果的slice
 		nums := make([]int, 0)
 		//隨機數生成器,加入時間戳保證每次生成的隨機數不一樣
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		// r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for i:=0; i < 5; i++ {
 			end := reelLength[i]
 			//生成隨機數
-			num := r.Intn(end)
+			//rand.Seed(time.Now().UnixNano())
+			num := rand.Intn(end)
 			nums = append(nums, num)
 		}
 	return nums
 }
 
-func index(reel *Reel) map[int][]int{
+func index(reel *Reel) [][]int{
 	index := generateRandomNumber(reel.reelLength)
 	// indexList := make([]int, 0)
-	m := map[int][]int{}
+
+	mm := make([][]int, 0)
 	iterator := 0
 	var length, x1, x2, x3 int
 	for _, i := range index{
@@ -151,29 +155,50 @@ func index(reel *Reel) map[int][]int{
 		}
 		x2 = i
 
-		m[iterator] = []int{x1, x2, x3}
+		m := make([]int, 0)
+		m = append(m, x1, x2, x3)
+		mm= append(mm, m)
 
 		iterator++
 	}
 
-	return m
+	return mm
 }
 
-func spin(reel *Reel) map[int][]int{
-	reelList := map[int][]int{}
+func spin(reel *Reel) [][]int{
+	reelList := make([][]int, 0)
 	indexArray := index(reel)
-
-	reelList[0] = []int{reel.reel1[indexArray[0][0]], reel.reel1[indexArray[0][1]], reel.reel1[indexArray[0][2]]}
-	reelList[1] = []int{reel.reel2[indexArray[1][0]], reel.reel2[indexArray[1][1]], reel.reel2[indexArray[1][2]]}
-	reelList[2] = []int{reel.reel3[indexArray[2][0]], reel.reel3[indexArray[2][1]], reel.reel3[indexArray[2][2]]}
-	reelList[3] = []int{reel.reel4[indexArray[3][0]], reel.reel4[indexArray[3][1]], reel.reel4[indexArray[3][2]]}
-	reelList[4] = []int{reel.reel5[indexArray[4][0]], reel.reel5[indexArray[4][1]], reel.reel5[indexArray[4][2]]}
+	var n []int
+	//reelList[0] = []int{reel.reel1[indexArray[0][0]], reel.reel1[indexArray[0][1]], reel.reel1[indexArray[0][2]]}
+	//reelList[1] = []int{reel.reel2[indexArray[1][0]], reel.reel2[indexArray[1][1]], reel.reel2[indexArray[1][2]]}
+	//reelList[2] = []int{reel.reel3[indexArray[2][0]], reel.reel3[indexArray[2][1]], reel.reel3[indexArray[2][2]]}
+	//reelList[3] = []int{reel.reel4[indexArray[3][0]], reel.reel4[indexArray[3][1]], reel.reel4[indexArray[3][2]]}
+	//reelList[4] = []int{reel.reel5[indexArray[4][0]], reel.reel5[indexArray[4][1]], reel.reel5[indexArray[4][2]]}
+	for i := 0; i < 5; i++{
+		switch {
+		case i == 0:
+			n = reel.reel1
+		case i == 1:
+			n = reel.reel2
+		case i == 2:
+			n = reel.reel3
+		case i == 3:
+			n = reel.reel4
+		case i == 4:
+			n = reel.reel5
+		default:
+			n = []int{0}
+		}
+		reelListi := make([]int, 0)
+		reelListi = append(reelListi, n[indexArray[i][0]], n[indexArray[i][1]], n[indexArray[i][2]])
+		reelList = append(reelList, reelListi)
+	}
 
 	return reelList
 
 }
 
-func getSymbol(reelList map[int][]int, payLine [][]int, line int) []int{
+func getSymbol(reelList [][]int, payLine [][]int, line int) []int{
 
 	symbolInPayline := make([]int, 5)
 	for i := 0; i < 5; i++{
@@ -183,7 +208,7 @@ func getSymbol(reelList map[int][]int, payLine [][]int, line int) []int{
 
 }
 
-func findKeyConnection(reelList map[int][]int, payLine [][]int, line int, wild int) []int{
+func findKeyConnection(reelList [][]int, payLine [][]int, line int, wild int) []int{
 	wild = 3
 	reelSymbol := getSymbol(reelList, payLine, line)
 	connectSymbol := -1
@@ -222,7 +247,7 @@ func prizeMapping_single(connectSymbol int, connectLine int, paytable  map[int][
 
 }
 
-func prizeMapping(reelList map[int][]int, payline int, payLine [][]int, paytable  map[int][]int) int{
+func prizeMapping(reelList [][]int, payline int, payLine [][]int, paytable  map[int][]int) int{
 		totalPrize := 0
 		for n := 0; n < payline; n++{
 			connection := findKeyConnection(reelList, payLine, n, 3)
