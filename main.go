@@ -201,7 +201,6 @@ func simulator_mainGame(reel *Reel, payline int, payLine [][]int, paytable  map[
 
 func simulator_mainGame_goroutine(times int){
 	rand.Seed(time.Now().UnixNano())
-	//fmt.Println("Hello World", "OPOPO")
 	//fmt.Println(rand.Intn(100))
 
 	// Reel Strips
