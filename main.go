@@ -1,16 +1,25 @@
 package main
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
+	"log"
 	"math/rand"
+	"sync"
 	"time"
 )
-
+var wg sync.WaitGroup
 
 func main() {
 
-	simulator_mainGame_goroutine(10000000)
+	simulator_mainGame_goroutine(1000000, 4)
 	// 0.61188126
+	//reel5 := []int{5, 3, 5, 3, 1, 1, 3, 42, 44}
+	//instanceReel := new(Reel)
+	//instanceReel.Init(reel1, reel2, reel3, reel4, reel5)
+	//RTP := simulator_mainGame(instanceReel, 25, payLine, payTable, 1000000)
+	//fmt.Println(RTP)
 }
 
 type Reel struct {
@@ -23,7 +32,7 @@ type Reel struct {
 
 }
 
-// constructor of cReel
+// constructor of Reel
 func (reel *Reel) Init(reel1  []int, reel2  []int ,reel3  []int, reel4  []int,  reel5  []int) {
 	reel.reel1 = reel1
 	reel.reel2 = reel2
@@ -34,6 +43,21 @@ func (reel *Reel) Init(reel1  []int, reel2  []int ,reel3  []int, reel4  []int,  
 
 }
 
+type cryptoSource struct{}
+
+func (s cryptoSource) Seed(seed int64) {}
+
+func (s cryptoSource) Int63() int64 {
+	return int64(s.Uint64() & ^uint64(1<<63))
+}
+
+func (s cryptoSource) Uint64() (v uint64) {
+	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return v
+}
 // generating random number based on len(reel)
 //生成5個[0,reelLength)結束的不重複的隨機數
 func generateRandomNumber(reelLength []int) []int {
@@ -42,13 +66,16 @@ func generateRandomNumber(reelLength []int) []int {
 		nums := make([]int, 0)
 		//隨機數生成器,加入時間戳保證每次生成的隨機數不一樣
 		// r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		for i:=0; i < 5; i++ {
-			end := reelLength[i]
-			//生成隨機數
-			//rand.Seed(time.Now().UnixNano())
-			num := rand.Intn(end)
-			nums = append(nums, num)
-		}
+		//for i:=0; i < 5; i++ {
+		//	end := reelLength[i]
+		//	//生成隨機數
+		//	//rand.Seed(time.Now().UnixNano())
+		//	num := rand.Intn(end)
+		//	nums = append(nums, num)
+		var src cryptoSource
+		r := rand.New(src)
+		nums = []int{r.Intn(reelLength[0]), r.Intn(reelLength[1]), r.Intn(reelLength[2]), r.Intn(reelLength[3]), r.Intn(reelLength[4])}
+		// }
 	return nums
 }
 
@@ -119,7 +146,7 @@ func spin(reel *Reel) [][]int{
 			n = []int{0}
 		}
 		reelListi := make([]int, 0)
-		reelListi = append(reelListi, n[indexArray[i][0]], n[indexArray[i][1]], n[indexArray[i][2]])
+		reelListi = []int{n[indexArray[i][0]], n[indexArray[i][1]], n[indexArray[i][2]]}
 		reelList = append(reelList, reelListi)
 	}
 
@@ -188,135 +215,71 @@ func prizeMapping(reelList [][]int, payline int, payLine [][]int, paytable  map[
 	return totalPrize
 }
 
-func simulator_mainGame(reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) float32{
+func simulator_mainGame(c chan int, reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) {
+	defer wg.Done()
 	sum := 0
 	for i := 0; i < t; i++{
 		reelSpin := spin(reel)
 		totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
 		sum += totalOdds
 	}
-
-	return float32(sum)  / float32(payline * t)
+	c <- sum
+	// return  float32(sum)
+	// return float32(sum)  / float32(payline * t)
 }
 
-func simulator_mainGame_goroutine(times int){
-	rand.Seed(time.Now().UnixNano())
-	//fmt.Println(rand.Intn(100))
+func simulator_mainGame_goroutine(times int, max int){
 
-	// Reel Strips
-	reel1 :=[] int {7, 2, 12, 10, 13, 9, 7, 12, 13, 10, 2, 6, 12, 10, 13, 12, 11, 12, 7, 12, 13, 5, 5, 5, 9, 10, 7, 13, 11, 10, 12, 7, 12, 5, 8, 10, 12, 9, 10, 7, 9, 12, 10, 13, 12, 6, 9, 10, 7, 7, 8, 9, 10, 6, 11, 12, 10, 7, 8, 12, 11, 13, 12, 8, 13, 7}
-	reel2 :=[] int {7, 2, 12, 10, 13, 9, 12, 12, 13, 10, 2, 6, 8, 13, 12, 3, 11, 12, 6, 12, 13, 12, 5, 12, 9, 3, 6, 11, 12, 10, 5, 12, 5, 6, 3, 10, 9, 13, 6, 10, 11, 3, 8, 13, 12, 7, 12, 10, 12, 10, 8, 12, 9, 12, 3, 13, 8, 13, 10, 13, 12, 9, 13}
-	reel3 :=[] int {7, 2, 12, 10, 8, 9, 10, 12, 13, 10, 2, 6, 8, 12, 12, 3, 11, 12, 6, 12, 13, 5, 5, 5, 9, 3, 6, 11, 12, 10, 5, 12, 13, 13, 3, 12, 9, 9, 6, 10, 10, 3, 8, 13, 12, 7, 12, 10, 12, 10, 8, 9, 12, 7, 3, 12, 10, 13, 8, 12, 10, 13, 8}
-	reel4 :=[] int {7, 2, 12, 10, 8, 9, 10, 12, 13, 10, 2, 6, 8, 12, 12, 3, 11, 12, 6, 8, 13, 12, 5, 5, 9, 3, 6, 11, 12, 10, 5, 12, 11, 13, 3, 12, 9, 9, 6, 10, 10, 3, 12, 13, 8, 7, 12, 10, 12, 10, 8, 9, 12, 7, 3, 12, 10, 13, 8, 12, 10, 13, 8}
-	reel5 :=[] int {7, 2, 12, 10, 8, 9, 10, 12, 13, 10, 2, 6, 8, 12, 12, 3, 11, 6, 6, 8, 13, 2, 5, 5, 9, 11, 6, 11, 12, 10, 5, 13, 11, 7, 11, 10, 9, 9, 6, 11, 10, 11, 8, 13, 8, 7, 9, 10, 12, 10, 8, 9, 12, 7, 11, 8, 10, 8, 9, 12, 8, 6, 10, 9, 7}
+	rand.Seed(time.Now().UnixNano())
 
 	instanceReel := new(Reel)
 	instanceReel.Init(reel1, reel2, reel3, reel4, reel5)
-	// fmt.Println(instanceReel.reelLength)
 
-	// fmt.Println("Here", index(instanceReel))
+	c1 := make(chan int, max)
+	//
+	//go simulator_mainGame(c1, instanceReel, 25, payLine, payTable, times/4)
+	//go simulator_mainGame(c1, instanceReel, 25, payLine, payTable, times/4)
+	//go simulator_mainGame(c1, instanceReel, 25, payLine, payTable, times/4)
+	//go simulator_mainGame(c1, instanceReel, 25, payLine, payTable, times/4)
+	//
+	//
+	//x1, x2, x3, x4 := <- c1, <- c1, <- c1, <- c1
+	for i := 0; i < max; i++ {
+		wg.Add(1)
+		go simulator_mainGame(c1, instanceReel, 25, payLine, payTable, times/max)
+	}
+	wg.Wait()
+	close(c1)
 
-	// result := spin(instanceReel)
-	// fmt.Println(result, result[0][1])
+	sumChannel := 0
+	for item := range c1 {
+		sumChannel += item
+	}
 
-	// Count
-	// payTable, payLine
-	payTable := map[int][]int{
-		0: {0, 0, 0, 0, 0, 0},
-		1: {0, 0, 0, 0, 0, 0},
-		2: {0, 0, 0, 0, 0, 0},
-		3: {0, 0, 0, 0, 0, 0},
-		4: {0, 0, 0, 0, 0, 0},
-		5: {0, 0, 0, 35, 70, 350},
-		6: {0, 0, 0, 30, 60, 300},
-		7: {0, 0, 0, 25, 50, 250},
-		8: {0, 0, 0, 20, 40, 200},
-		9: {0, 0, 0, 15, 30, 150},
-		10: {0, 0, 0, 12, 24, 120},
-		11: {0, 0, 0, 10, 20, 100},
-		12: {0, 0, 0, 5, 10, 50},
-		13: {0, 0, 0, 3, 6, 30}}
-
-	payLine := [][]int{
-		{1, 1, 1, 1, 1},
-		{0, 0, 0, 0, 0},
-		{2, 2, 2, 2, 2},
-		{0, 1, 2, 1, 0},
-		{2, 1, 0, 1, 2},
-		{0, 1, 1, 1, 0},
-		{2, 1, 1, 1, 2},
-		{1, 0, 0, 0, 1},
-		{1, 2, 2, 2, 1},
-		{0, 0, 1, 2, 2},
-		{2, 2, 1, 0, 0},
-		{1, 0, 1, 2, 1},
-		{1, 2, 1, 0, 1},
-		{0, 1, 0, 1, 0},
-		{2, 1, 2, 1, 2},
-		{1, 2, 0, 2, 1},
-		{1, 0, 2, 0, 1},
-		{1, 1, 0, 1, 1},
-		{1, 1, 2, 1, 1},
-		{0, 0, 2, 0, 0},
-		{2, 2, 0, 2, 2},
-		{0, 1, 0, 1, 2},
-		{2, 1, 2, 1, 0},
-		{1, 0, 0, 1, 2},
-		{1, 2, 2, 1, 0}}
-
-	c1 := make(chan float32, 1)
-	c2 := make(chan float32, 1)
-	c3 := make(chan float32, 1)
-	c4 := make(chan float32, 1)
-
-	go func (reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) {
-		sum := 0
-		for i := 0; i < t; i++{
-			reelSpin := spin(reel)
-			totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
-			sum += totalOdds
-		}
-
-		c1 <- float32(sum)
-	}(instanceReel, 25, payLine, payTable, times/4)
-	go func (reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) {
-		sum := 0
-		for i := 0; i < t; i++{
-			reelSpin := spin(reel)
-			totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
-			sum += totalOdds
-		}
-
-		c2 <- float32(sum)
-	}(instanceReel, 25, payLine, payTable, times/4)
-	go func (reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) {
-		sum := 0
-		for i := 0; i < t; i++{
-			reelSpin := spin(reel)
-			totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
-			sum += totalOdds
-		}
-
-		c3 <- float32(sum)
-	}(instanceReel, 25, payLine, payTable, times/4)
-	go func (reel *Reel, payline int, payLine [][]int, paytable  map[int][]int, t int) {
-		sum := 0
-		for i := 0; i < t; i++{
-			reelSpin := spin(reel)
-			totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
-			sum += totalOdds
-		}
-
-		c4 <- float32(sum)
-	}(instanceReel, 25, payLine, payTable, times/4)
-
-	x1 := <-  c1
-	x2 := <-  c2
-	x3 := <-  c3
-	x4 := <-  c4
-
-	rtp := (x1+x2+x3+x4)/(float32(times)*25)
+	rtp := float32(sumChannel)/(float32(times)*25)
 
 	fmt.Println(rtp)
 
 }
+
+//func simBody(reel *Reel, payline int, payLine [][]int, paytable map[int][]int, sum *int, group *sync.WaitGroup, mu *sync.Mutex) {
+//	reelSpin := spin(reel)
+//	totalOdds := prizeMapping(reelSpin, payline, payLine, paytable)
+//	mu.Lock()
+//	*sum += totalOdds
+//	mu.Unlock()
+//	group.Done()
+//}
+//
+//func simulator_mainGame(reel *Reel, payline int, payLine [][]int, paytable map[int][]int, t int) float32 {
+//	//defer timeTrack(time.Now(), "Simulator Time")
+//	sum := 0
+//	group := sync.WaitGroup{}
+//	mu := sync.Mutex{}
+//	for i := 0; i < t; i++ {
+//		group.Add(1)
+//		go simBody(reel, payline, payLine, paytable, &sum, &group, &mu)
+//	}
+//	group.Wait()
+//	return float32(sum) / float32(payline * t)
+//}
